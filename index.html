@@ -1,0 +1,2024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Things</title>
+    <meta name="theme-color" content="#000000">
+    <!-- Link to the Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            /* No double-tap zoom (fast taps on days/buttons); pinch zoom and scrolling still work */
+            touch-action: manipulation;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1A202C;
+            color: #E2E8F0;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        
+        /* Controls section */
+        .controls {
+            background: #2D3748;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+        }
+
+        .controls select {
+            flex: 1;
+            min-width: 0;
+            padding: 8px 12px;
+            border: 1px solid #4A5568;
+            border-radius: 6px;
+            font-size: 16px; /* < 16px makes iOS zoom in on focus */
+            background: #283140;
+            color: #E2E8F0;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls #yearSelect {
+            flex: 0 0 auto;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        /* Buttons and labels */
+        .file-input-label, .btn {
+            background: #4299E1;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            border: none;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.15);
+            transform: translateY(0);
+        }
+        
+        .file-input-label:hover, .btn:hover {
+            background: #3182CE;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .file-input-label:active, .btn:active {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15), 0 0.5px 1px rgba(0, 0, 0, 0.1);
+            transform: translateY(1px);
+        }
+        
+        .btn.secondary {
+            background: #718096;
+        }
+        
+        .btn.secondary:hover {
+            background: #4A5568;
+        }
+        
+        .btn.danger {
+            background: #FC8181;
+        }
+        
+        .btn.danger:hover {
+            background: #E53E3E;
+        }
+
+        .btn.info {
+            background: #68D391;
+        }
+
+        .btn.info:hover {
+            background: #48BB78;
+        }
+        
+        /* Heatmap section */
+        .heatmap-container {
+            background: #2D3748;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+        }
+        
+        .heatmap-wrapper {
+            display: flex;
+            overflow-x: auto;
+            padding-bottom: 16px;
+        }
+        
+        .heatmap {
+            display: grid;
+            grid-template-rows: repeat(7, 1fr);
+            grid-auto-flow: column;
+            gap: 3px;
+        }
+        
+        .day-cell {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            background: #4A5568;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+        
+        .day-cell:hover {
+            transform: scale(1.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+        
+        .day-cell.win {
+            background: #68D391;
+        }
+        
+        .day-cell.loss {
+            background: #FC8181;
+        }
+
+        .day-cell.today {
+            outline: 2px solid #F7FAFC;
+            outline-offset: 1px;
+        }
+
+        .day-cell.future {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        .day-cell.empty {
+            visibility: hidden;
+        }
+
+        .heatmap {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        .heatmap-hint {
+            text-align: center;
+            font-size: 12px;
+            color: #718096;
+            margin-top: 12px;
+        }
+
+        /* Today panel */
+        .today-panel {
+            background: #2D3748;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+        }
+
+        .today-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 8px;
+        }
+
+        .today-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #F7FAFC;
+        }
+
+        .today-header h2 span, .today-progress {
+            font-size: 13px;
+            font-weight: 500;
+            color: #A0AEC0;
+            margin-left: 6px;
+        }
+
+        .today-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto auto;
+            align-items: center;
+            column-gap: 8px;
+            row-gap: 4px;
+            padding: 8px 0;
+            border-top: 1px solid #4A5568;
+        }
+
+        .today-head {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .today-meta {
+            display: flex;
+            gap: 8px;
+            min-width: 0;
+            overflow: hidden;
+            font-size: 12px;
+            color: #A0AEC0;
+            white-space: nowrap;
+        }
+
+        .today-meta .streak-w {
+            color: #68D391;
+        }
+
+        .today-meta .streak-l {
+            color: #FC8181;
+        }
+
+        .today-meta .miss-twice-hint {
+            color: #F6AD55;
+            font-weight: 600;
+        }
+
+        .today-row.miss-twice .today-btn.win {
+            border-color: #F6AD55;
+        }
+
+        /* Last week + this week, tappable like the heatmap */
+        .today-strip {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .week {
+            flex: 1;
+            display: flex;
+            gap: 3px;
+        }
+
+        .week-count {
+            min-width: 14px;
+            font-size: 12px;
+            color: #A0AEC0;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .week-count.this.ahead {
+            color: #68D391;
+            font-weight: 600;
+        }
+
+        .strip-cell.future {
+            opacity: 0.35;
+            cursor: default;
+        }
+
+        .strip-cell {
+            flex: 1;
+            max-width: 24px;
+            height: 14px;
+            border-radius: 3px;
+            background: #4A5568;
+            cursor: pointer;
+        }
+
+        .strip-cell.win {
+            background: #68D391;
+        }
+
+        .strip-cell.loss {
+            background: #FC8181;
+        }
+
+        .strip-cell.today {
+            outline: 2px solid #F7FAFC;
+            outline-offset: 1px;
+        }
+
+        .today-row:first-child {
+            border-top: none;
+        }
+
+        .today-name {
+            flex-shrink: 0;
+            max-width: 100%;
+            text-align: left;
+            background: none;
+            border: none;
+            color: #E2E8F0;
+            font-size: 16px;
+            padding: 4px 0;
+            cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .today-row.selected .today-name {
+            color: #63B3ED;
+            font-weight: 600;
+        }
+
+        .today-btn {
+            width: 48px;
+            height: 44px;
+            border-radius: 8px;
+            border: 1px solid #4A5568;
+            background: #283140;
+            color: #718096;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .today-btn.win.active {
+            background: #68D391;
+            border-color: #68D391;
+            color: #1A202C;
+        }
+
+        .today-btn.loss.active {
+            background: #FC8181;
+            border-color: #FC8181;
+            color: #1A202C;
+        }
+
+        .today-btn.note {
+            width: 28px;
+            font-size: 14px;
+            border-color: transparent;
+            background: none;
+        }
+
+        .today-btn.note.has-note {
+            color: #63B3ED;
+        }
+
+        .today-btn:disabled {
+            visibility: hidden;
+        }
+
+        .today-empty {
+            color: #A0AEC0;
+            font-size: 14px;
+            padding: 8px 0;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translate(-50%, 20px);
+            background: #E2E8F0;
+            color: #1A202C;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+            z-index: 3000;
+            max-width: calc(100% - 32px);
+        }
+
+        .toast.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, 0);
+        }
+
+        .toast button {
+            background: none;
+            border: none;
+            color: #3182CE;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+            margin-top: 24px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #A0AEC0;
+        }
+        
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: #E2E8F0;
+            color: #1A202C;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.15s;
+            white-space: nowrap;
+        }
+        
+        /* Stats section */
+        .stats {
+            background: #242D3B;
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .stats {
+                gap: 6px;
+            }
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 8px;
+            background: #2D3748;
+            border-radius: 8px;
+            border: 1px solid #4A5568;
+        }
+        
+        .stat-number {
+            font-size: 20px;
+            font-weight: 700;
+            color: #F7FAFC;
+            margin-bottom: 0px;
+        }
+        
+        .stat-label {
+            color: #A0AEC0;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .stat-sub {
+            color: #718096;
+            font-size: 10px;
+        }
+        
+        /* Cards: patterns + notes */
+        .card {
+            background: #2D3748;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #F7FAFC;
+            margin-bottom: 8px;
+        }
+
+        .card-sub {
+            font-size: 13px;
+            font-weight: 500;
+            color: #A0AEC0;
+            margin-left: 6px;
+        }
+
+        .pattern-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .bars-title {
+            font-size: 12px;
+            color: #A0AEC0;
+            margin: 8px 0 4px;
+        }
+
+        .bars {
+            display: flex;
+            gap: 4px;
+        }
+
+        .bar {
+            flex: 1;
+            max-width: 56px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .bar-value {
+            font-size: 10px;
+            color: #A0AEC0;
+            white-space: nowrap;
+        }
+
+        .bar-track {
+            width: 100%;
+            height: 56px;
+            background: #4A5568;
+            border-radius: 3px;
+            display: flex;
+            align-items: flex-end;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            width: 100%;
+            background: #68D391;
+        }
+
+        .bar-label {
+            font-size: 11px;
+            color: #E2E8F0;
+        }
+
+        .notes-search {
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border: 1px solid #4A5568;
+            border-radius: 6px;
+            font-size: 16px; /* < 16px makes iOS zoom in on focus */
+            background: #283140;
+            color: #E2E8F0;
+        }
+
+        .note-item {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 0;
+            background: none;
+            border: none;
+            border-top: 1px solid #4A5568;
+            color: #E2E8F0;
+            font-size: 14px;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .note-dot {
+            flex-shrink: 0;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .note-dot.win {
+            background: #68D391;
+        }
+
+        .note-dot.loss {
+            background: #FC8181;
+        }
+
+        .note-date {
+            flex-shrink: 0;
+            font-size: 12px;
+            color: #A0AEC0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .note-text {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .notes-empty {
+            color: #A0AEC0;
+            font-size: 14px;
+            padding: 8px 0;
+        }
+
+        .notes-more {
+            width: 100%;
+            padding: 8px;
+            background: none;
+            border: none;
+            border-top: 1px solid #4A5568;
+            color: #63B3ED;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* Settings sheet */
+        #settingsSheet {
+            z-index: 1500;
+        }
+
+        .modal-content.settings {
+            padding: 20px;
+            text-align: left;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-header h3 {
+            margin: 0;
+        }
+
+        .modal-content.settings h4 {
+            font-size: 13px;
+            color: #A0AEC0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 20px 0 8px;
+        }
+
+        .settings-thing {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            border-top: 1px solid #4A5568;
+        }
+
+        .settings-thing:first-child {
+            border-top: none;
+        }
+
+        .settings-thing-name {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .settings-thing.archived .settings-thing-name {
+            color: #718096;
+            text-decoration: line-through;
+        }
+
+        .settings-thing-count {
+            font-size: 12px;
+            color: #A0AEC0;
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            background: none;
+            border: none;
+            border-radius: 6px;
+            color: #A0AEC0;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .icon-btn:hover {
+            background: #4A5568;
+            color: #F7FAFC;
+        }
+
+        .icon-btn.small {
+            width: 32px;
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.25;
+            cursor: default;
+        }
+
+        .settings-info {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #A0AEC0;
+            line-height: 1.6;
+        }
+
+        .backup-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #2D3748;
+            border: 1px solid #F6AD55;
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .backup-banner[hidden] {
+            display: none;
+        }
+
+        .backup-banner > i {
+            color: #F6AD55;
+        }
+
+        .backup-banner span {
+            flex: 1;
+        }
+
+        .banner-later {
+            background: none;
+            border: none;
+            color: #A0AEC0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .settings-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: #2D3748;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.visible .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 20px;
+            color: #F7FAFC;
+        }
+
+        .modal-content p {
+            margin-bottom: 25px;
+            color: #A0AEC0;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .modal-buttons .btn {
+            padding: 10px 25px;
+            font-size: 15px;
+        }
+
+        .modal-input {
+            width: calc(100% - 24px);
+            padding: 10px 12px;
+            margin-bottom: 20px;
+            border: 1px solid #4A5568;
+            border-radius: 6px;
+            font-size: 16px; /* < 16px makes iOS zoom in on focus */
+            background: #283140;
+            color: #E2E8F0;
+            box-sizing: border-box;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .heatmap-container {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="backup-banner" id="backupBanner" hidden>
+            <i class="fas fa-shield-alt"></i>
+            <span id="backupBannerText"></span>
+            <button class="btn secondary" onclick="exportCSV()">Export</button>
+            <button class="banner-later" onclick="snoozeBackupReminder()">Later</button>
+        </div>
+
+        <div class="today-panel">
+            <div class="today-header">
+                <h2>Today <span id="todayDate"></span></h2>
+                <span class="today-progress" id="todayProgress"></span>
+            </div>
+            <div id="todayList"></div>
+        </div>
+
+        <div class="controls">
+            <select id="thingSelect" onchange="updateDisplay()" aria-label="Thing"></select>
+            <select id="yearSelect" onchange="updateDisplay()" aria-label="Year"></select>
+            <button class="btn info" onclick="createNewThing()" title="New thing"><i class="fas fa-plus"></i></button>
+            <button class="btn secondary" onclick="openSettings()" title="Settings"><i class="fas fa-cog"></i></button>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="winRate">0%</div>
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-sub" id="winLoss"></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="currentStreak">0</div>
+                <div class="stat-label">Current Streak</div>
+                <div class="stat-sub">days</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="bestStreak">0</div>
+                <div class="stat-label">Best Streak</div>
+                <div class="stat-sub" id="bestStreakSub"></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="loggedRate">0%</div>
+                <div class="stat-label">Days Logged</div>
+                <div class="stat-sub" id="loggedDays"></div>
+            </div>
+        </div>
+
+        <div class="heatmap-container">
+            <div id="heatmapContent">
+                <div class="heatmap-wrapper" id="heatmapWrapper">
+                    <div class="heatmap" id="heatmap"></div>
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4A5568;"></div>
+                        <span>No data</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #68D391;"></div>
+                        <span>Win</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FC8181;"></div>
+                        <span>Loss</span>
+                    </div>
+                </div>
+                <div class="heatmap-hint">Tap a day to cycle win → loss → empty · long-press for comment</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Patterns <span class="card-sub" id="patternsSub"></span></h2>
+            <div class="pattern-stats">
+                <div class="stat-item">
+                    <div class="stat-number" id="avgWinStreak">–</div>
+                    <div class="stat-label">Avg Win Streak</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="avgLossStreak">–</div>
+                    <div class="stat-label">Avg Loss Streak</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="winStreakCount">0</div>
+                    <div class="stat-label">Win Streaks</div>
+                </div>
+            </div>
+            <div class="bars-title">Win rate by weekday, %</div>
+            <div class="bars" id="weekdayBars"></div>
+            <div class="bars-title">Win rate by month, %</div>
+            <div class="bars" id="monthBars"></div>
+        </div>
+
+        <div class="card">
+            <h2>Notes <span class="card-sub" id="notesSub"></span></h2>
+            <input type="search" id="notesSearch" class="notes-search" placeholder="Search comments…" />
+            <div id="notesList"></div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    <div class="toast" id="toast"></div>
+
+    <!-- Settings Sheet -->
+    <div id="settingsSheet" class="modal-overlay">
+        <div class="modal-content settings">
+            <div class="settings-header">
+                <h3>Settings</h3>
+                <button class="icon-btn" onclick="closeSettings()" title="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <h4>Things</h4>
+            <div id="settingsThings"></div>
+            <h4>Data</h4>
+            <div class="settings-actions">
+                <div class="file-input-wrapper">
+                    <input type="file" id="csvFile" accept=".csv" />
+                    <label for="csvFile" class="file-input-label"><i class="fas fa-arrow-down"></i> Import CSV</label>
+                </div>
+                <button class="btn secondary" onclick="exportCSV()"><i class="fas fa-arrow-up"></i> Export CSV</button>
+                <button class="btn danger" onclick="confirmResetData()"><i class="fas fa-redo-alt"></i> Reset all</button>
+            </div>
+            <div class="settings-info">
+                Last export: <span id="lastExport"></span><br>
+                Storage: <span id="storageStatus"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal Structure -->
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="modalTitle"></h3>
+            <p id="modalMessage"></p>
+            <input type="text" id="modalInput" class="modal-input" style="display:none;" />
+            <div class="modal-buttons">
+                <button id="modalConfirmBtn" class="btn">OK</button>
+                <button id="modalCancelBtn" class="btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script type="module">
+        // Global variables for data
+        let data = []; // Array to hold all fetched data
+        
+        let currentYear = new Date().getFullYear();
+        let currentThing = null;
+
+        // --- Date & Entry Helpers ---
+
+        // Local YYYY-MM-DD (toISOString would shift to UTC and land on the wrong day)
+        function toLocalDateStr(d) {
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+
+        function yearOf(dateStr) {
+            return parseInt(dateStr.slice(0, 4), 10);
+        }
+
+        function addDays(dateStr, n) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return toLocalDateStr(new Date(y, m - 1, d + n));
+        }
+
+        // date -> 'w' | 'l' for one thing
+        function resultsByDate(thing) {
+            const results = new Map();
+            data.forEach(item => {
+                if (item.thing === thing) results.set(item.date, item.result);
+            });
+            return results;
+        }
+
+        // Consecutive days with the same result, ending today (or yesterday while today is still unlogged).
+        // An unlogged day breaks the streak.
+        function getCurrentStreak(results, todayStr) {
+            let day = results.has(todayStr) ? todayStr : addDays(todayStr, -1);
+            const type = results.get(day) || null;
+            let length = 0;
+            while (type && results.get(day) === type) {
+                length++;
+                day = addDays(day, -1);
+            }
+            return { length, type };
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function findEntry(date, thing) {
+            return data.find(item => item.date === date && item.thing === thing);
+        }
+
+        // Set a day's result for a thing; result null removes the entry (with an Undo toast)
+        function setResult(date, thing, result) {
+            const index = data.findIndex(item => item.date === date && item.thing === thing);
+            if (result === null) {
+                if (index === -1) return;
+                const [removed] = data.splice(index, 1);
+                showToast(`${thing} cleared for ${date}`, 'Undo', () => {
+                    data.push(removed);
+                    data.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    saveDataToLocalStorage();
+                    refreshAfterEntryChange(date, thing);
+                });
+            } else if (index > -1) {
+                data[index].result = result;
+            } else {
+                data.push({ date, thing, result, comment: '' });
+                data.sort((a, b) => new Date(a.date) - new Date(b.date));
+            }
+            saveDataToLocalStorage();
+            refreshAfterEntryChange(date, thing);
+        }
+
+        // empty -> win -> loss -> empty
+        function cycleResult(date, thing) {
+            const entry = findEntry(date, thing);
+            setResult(date, thing, !entry ? 'w' : entry.result === 'w' ? 'l' : null);
+        }
+
+        function setComment(date, thing, comment) {
+            const entry = findEntry(date, thing);
+            if (!entry) return;
+            entry.comment = comment.trim();
+            saveDataToLocalStorage();
+            refreshAfterEntryChange(date, thing);
+        }
+
+        // Cheap refresh: repaint one heatmap cell instead of rebuilding (keeps scroll position)
+        function refreshAfterEntryChange(date, thing) {
+            if (!document.querySelector(`#yearSelect option[value="${yearOf(date)}"]`)) populateYearSelector();
+            if (thing === currentThing) {
+                const cell = document.querySelector(`#heatmap .day-cell[data-date="${date}"]`);
+                if (cell) paintCell(cell);
+            }
+            updateStats();
+            updateTodayPanel();
+            updatePatterns();
+            updateNotes();
+        }
+
+        // --- Toast ---
+        let toastTimer = null;
+
+        function showToast(message, actionLabel = null, action = null) {
+            const toast = document.getElementById('toast');
+            toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+            if (actionLabel && action) {
+                const btn = document.createElement('button');
+                btn.textContent = actionLabel;
+                btn.onclick = () => {
+                    toast.classList.remove('visible');
+                    action();
+                };
+                toast.appendChild(btn);
+            }
+            toast.classList.add('visible');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('visible'), 4000);
+        }
+
+        // --- Local Storage Data Operations ---
+
+        // Things list + UI state, kept separately so a new thing survives a reload before its first entry
+        // meta = { things: [{ name, archived }], selectedThing }
+        let meta = { things: [], selectedThing: null };
+
+        function loadDataFromLocalStorage() {
+            try {
+                data = JSON.parse(localStorage.getItem('thingsTrackerData') || '[]');
+                data.sort((a, b) => new Date(a.date) - new Date(b.date));
+                meta = { things: [], selectedThing: null, ...JSON.parse(localStorage.getItem('thingsTrackerMeta') || '{}') };
+            } catch (error) {
+                console.error("Error loading data from Local Storage:", error);
+                showCustomModal('Data Error', 'Failed to load your data from local storage.', null, true);
+            }
+            syncThingsWithData();
+            if (!meta.ordered) {
+                // One-time switch from alphabetical to custom order: start from the old alphabetical order
+                meta.things.sort((a, b) => a.name.localeCompare(b.name));
+                meta.ordered = true;
+                saveMeta();
+            }
+            currentThing = meta.selectedThing;
+            refreshAll();
+            requestPersistentStorage();
+        }
+
+        // --- Backup Safety ---
+
+        // Ask the browser not to evict our storage under pressure (no prompt on iOS/Chrome; may be denied)
+        let storagePersisted = null;
+
+        async function requestPersistentStorage() {
+            if (!navigator.storage?.persist) return;
+            try {
+                storagePersisted = await navigator.storage.persisted() || await navigator.storage.persist();
+            } catch (error) {
+                console.error('Persistent storage request failed:', error);
+            }
+        }
+
+        function daysBetween(fromStr, toStr) {
+            const toUtc = str => {
+                const [y, m, d] = str.split('-').map(Number);
+                return Date.UTC(y, m - 1, d);
+            };
+            return Math.round((toUtc(toStr) - toUtc(fromStr)) / 86400000);
+        }
+
+        function lastExportText() {
+            if (!meta.lastExport) return 'never';
+            const days = daysBetween(meta.lastExport, toLocalDateStr(new Date()));
+            return days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+        }
+
+        const BACKUP_REMINDER_DAYS = 30;
+
+        // Banner when there is data and no export for 30+ days (snoozable for a week)
+        function updateBackupBanner() {
+            const todayStr = toLocalDateStr(new Date());
+            const due = data.length > 0
+                && (!meta.lastExport || daysBetween(meta.lastExport, todayStr) >= BACKUP_REMINDER_DAYS)
+                && !(meta.backupSnoozedUntil && meta.backupSnoozedUntil > todayStr);
+            const banner = document.getElementById('backupBanner');
+            banner.hidden = !due;
+            if (due) document.getElementById('backupBannerText').textContent = `Last backup: ${lastExportText()}`;
+        }
+
+        function snoozeBackupReminder() {
+            meta.backupSnoozedUntil = addDays(toLocalDateStr(new Date()), 7);
+            saveMeta();
+            updateBackupBanner();
+        }
+
+        function saveDataToLocalStorage() {
+            try {
+                localStorage.setItem('thingsTrackerData', JSON.stringify(data));
+            } catch (error) {
+                console.error("Error saving data to Local Storage:", error);
+                showCustomModal('Save Error', 'Failed to save data to local storage. Please check your device storage.', null, true);
+            }
+        }
+
+        function saveMeta() {
+            try {
+                localStorage.setItem('thingsTrackerMeta', JSON.stringify(meta));
+            } catch (error) {
+                console.error("Error saving settings:", error);
+            }
+        }
+
+        // Make sure every thing that has entries is in the things list
+        function syncThingsWithData() {
+            const known = new Set(meta.things.map(t => t.name));
+            data.forEach(item => {
+                if (!known.has(item.thing)) {
+                    meta.things.push({ name: item.thing, archived: false });
+                    known.add(item.thing);
+                }
+            });
+            saveMeta();
+        }
+
+        // Things in the user's own order (meta.things array order)
+        function activeThings() {
+            return meta.things.filter(t => !t.archived).map(t => t.name);
+        }
+
+        // Swap a thing with its previous (-1) or next (+1) active neighbour
+        function moveThing(name, direction) {
+            const active = meta.things.filter(t => !t.archived);
+            const index = active.findIndex(t => t.name === name);
+            const neighbour = active[index + direction];
+            if (!neighbour) return;
+            const a = meta.things.indexOf(active[index]);
+            const b = meta.things.indexOf(neighbour);
+            [meta.things[a], meta.things[b]] = [meta.things[b], meta.things[a]];
+            saveMeta();
+            refreshAll();
+        }
+
+        // Rebuild selectors and everything that depends on them
+        function refreshAll() {
+            updateThingSelector();
+            populateYearSelector();
+            updateDisplay();
+            if (document.getElementById('settingsSheet').classList.contains('visible')) renderSettings();
+        }
+
+        async function resetData() {
+            const snapshot = { data: [...data], meta: JSON.parse(JSON.stringify(meta)) };
+            data = [];
+            meta = { things: [], selectedThing: null, ordered: true };
+            currentThing = null;
+            saveDataToLocalStorage();
+            saveMeta();
+            refreshAll();
+            showToast('All data reset', 'Undo', () => {
+                data = snapshot.data;
+                meta = snapshot.meta;
+                currentThing = meta.selectedThing;
+                saveDataToLocalStorage();
+                saveMeta();
+                refreshAll();
+            });
+        }
+
+        // --- CSV Import/Export ---
+
+        function exportCSV() {
+            if (data.length === 0) {
+                showToast('There is no data to export');
+                return;
+            }
+            
+            const csv = Papa.unparse(data, {
+                header: true,
+                columns: ['date', 'thing', 'result', 'comment']
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'things_' + toLocalDateStr(new Date()) + '.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            meta.lastExport = toLocalDateStr(new Date());
+            delete meta.backupSnoozedUntil;
+            saveMeta();
+            updateBackupBanner();
+            if (document.getElementById('settingsSheet').classList.contains('visible')) renderSettings();
+        }
+
+        // Import merges into existing data; imported rows win for the same date + thing
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    try {
+                        const importedData = results.data
+                            .map(row => ({
+                                date: (row.date || '').trim(),
+                                thing: (row.thing || '').trim(),
+                                result: (row.result || '').trim().toLowerCase(),
+                                comment: row.comment || ''
+                            }))
+                            .filter(row => /^\d{4}-\d{2}-\d{2}$/.test(row.date) && row.thing && (row.result === 'w' || row.result === 'l'));
+                        const skipped = results.data.length - importedData.length;
+
+                        if (importedData.length === 0) {
+                            showCustomModal('Import Error', 'No valid rows found. Expected columns: date (YYYY-MM-DD), thing, result (w/l), comment.', null, true);
+                            return;
+                        }
+
+                        importedData.forEach(newItem => {
+                            const existingIndex = data.findIndex(item => item.date === newItem.date && item.thing === newItem.thing);
+                            if (existingIndex > -1) {
+                                data[existingIndex] = newItem;
+                            } else {
+                                data.push(newItem);
+                            }
+                        });
+                        data.sort((a, b) => new Date(a.date) - new Date(b.date));
+                        saveDataToLocalStorage();
+                        syncThingsWithData();
+                        refreshAll();
+                        showToast(`Imported ${importedData.length} entries` + (skipped ? ` (${skipped} invalid row${skipped === 1 ? '' : 's'} skipped)` : ''));
+                    } catch (error) {
+                        console.error("Error importing CSV data:", error);
+                        showCustomModal('Import Error', 'Failed to import CSV data. Please check file format.', null, true);
+                    } finally {
+                        e.target.value = '';
+                    }
+                },
+                error: function(error) {
+                    console.error('Error parsing CSV:', error.message);
+                    showCustomModal('CSV Parse Error', 'Error parsing CSV file: ' + escapeHtml(error.message), null, true);
+                    e.target.value = '';
+                }
+            });
+        });
+
+        // --- UI Update Functions ---
+
+        // Populate the year selector based on available data
+        function populateYearSelector() {
+            const yearSelect = document.getElementById('yearSelect');
+            const thisYear = new Date().getFullYear();
+            const yearsInUse = [...new Set([thisYear, ...data.map(item => yearOf(item.date))])].sort((a, b) => b - a);
+
+            yearSelect.innerHTML = '';
+            yearsInUse.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            });
+
+            if (!yearsInUse.includes(currentYear)) currentYear = thisYear;
+            yearSelect.value = currentYear;
+        }
+
+        // Thing selector lists active (non-archived) things
+        function updateThingSelector() {
+            const thingSelect = document.getElementById('thingSelect');
+            const things = activeThings();
+
+            thingSelect.innerHTML = '';
+            things.forEach(thing => {
+                const option = document.createElement('option');
+                option.value = thing;
+                option.textContent = thing;
+                thingSelect.appendChild(option);
+            });
+
+            if (!things.includes(currentThing)) currentThing = things[0] ?? null;
+            if (currentThing !== null) thingSelect.value = currentThing;
+        }
+
+        // The day the screen was last drawn for. A home-screen app can stay open across midnight,
+        // so every tap checks this before writing, otherwise it would log to yesterday.
+        let renderedDay = null;
+
+        // Returns true if the screen is current; otherwise redraws for the new day and returns false
+        function ensureCurrentDay() {
+            if (renderedDay === null) return true; // not loaded yet
+            if (toLocalDateStr(new Date()) === renderedDay) return true;
+            const thisYear = new Date().getFullYear();
+            if (currentYear === thisYear - 1) currentYear = thisYear; // follow New Year
+            refreshAll();
+            return false;
+        }
+
+        // Main function to update all UI components
+        function updateDisplay() {
+            renderedDay = toLocalDateStr(new Date());
+            currentYear = parseInt(document.getElementById('yearSelect').value);
+            currentThing = document.getElementById('thingSelect').value || null;
+            if (meta.selectedThing !== currentThing) {
+                meta.selectedThing = currentThing;
+                saveMeta();
+            }
+
+            updateHeatmap();
+            updateStats();
+            updateTodayPanel();
+            updatePatterns();
+            updateNotes();
+            updateBackupBanner();
+        }
+
+        // --- Today Panel ---
+
+        // One row per thing with one-tap win/loss; tapping the active result again clears it
+        function updateTodayPanel() {
+            const list = document.getElementById('todayList');
+            const todayStr = toLocalDateStr(new Date());
+            const things = [...document.getElementById('thingSelect').options].map(opt => opt.value);
+
+            document.getElementById('todayDate').textContent =
+                new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
+
+            if (things.length === 0) {
+                list.innerHTML = '<div class="today-empty">Create a thing with <i class="fas fa-plus"></i> to start tracking.</div>';
+                document.getElementById('todayProgress').textContent = '';
+                return;
+            }
+
+            // Strip = last week + this week, Monday-aligned
+            const thisMonday = addDays(todayStr, -((new Date().getDay() + 6) % 7));
+            const lastMonday = addDays(thisMonday, -7);
+
+            let logged = 0;
+            list.innerHTML = '';
+            things.forEach(thing => {
+                const entry = findEntry(todayStr, thing);
+                if (entry) logged++;
+
+                const results = resultsByDate(thing);
+                const streak = getCurrentStreak(results, todayStr);
+                let wins30 = 0, logged30 = 0;
+                for (let i = 0; i < 30; i++) {
+                    const result = results.get(addDays(todayStr, -i));
+                    if (result) logged30++;
+                    if (result === 'w') wins30++;
+                }
+                // "Never miss twice": yesterday was missed and today isn't logged yet
+                // (only for things logged in the last two weeks, so dormant things don't nag)
+                const yesterday = addDays(todayStr, -1);
+                const recentlyActive = Array.from({ length: 14 }, (_, i) => addDays(todayStr, -1 - i)).some(day => results.has(day));
+                const missTwice = !entry && recentlyActive && results.get(yesterday) !== 'w';
+
+                const streakHtml = streak.length > 0
+                    ? `<span class="streak-${streak.type}" title="Current streak (days)"><i class="fas fa-${streak.type === 'w' ? 'fire' : 'times'}"></i> ${streak.length}</span>`
+                    : '';
+                const rateHtml = logged30 > 0
+                    ? `<span title="Win rate, last 30 days (${wins30}/${logged30})">${Math.round(wins30 / logged30 * 100)}%</span>`
+                    : '';
+
+                const weekHtml = monday => {
+                    let wins = 0;
+                    const cells = Array.from({ length: 7 }, (_, i) => {
+                        const date = addDays(monday, i);
+                        const result = results.get(date);
+                        if (result === 'w') wins++;
+                        let cls = result === 'w' ? ' win' : result === 'l' ? ' loss' : '';
+                        if (date === todayStr) cls += ' today';
+                        if (date > todayStr) cls += ' future';
+                        return `<div class="strip-cell${cls}" data-date="${date}" title="${date}"></div>`;
+                    }).join('');
+                    return { cells, wins };
+                };
+                const lastWeek = weekHtml(lastMonday);
+                const thisWeek = weekHtml(thisMonday);
+                const stripHtml = `
+                    <div class="week">${lastWeek.cells}</div>
+                    <span class="week-count" title="Last week: ${lastWeek.wins} wins">${lastWeek.wins}</span>
+                    <div class="week">${thisWeek.cells}</div>
+                    <span class="week-count this${thisWeek.wins >= lastWeek.wins && thisWeek.wins > 0 ? ' ahead' : ''}" title="This week: ${thisWeek.wins} wins (last week ${lastWeek.wins})">${thisWeek.wins}</span>`;
+
+                const row = document.createElement('div');
+                row.className = 'today-row' + (thing === currentThing ? ' selected' : '') + (missTwice ? ' miss-twice' : '');
+                row.innerHTML = `
+                    <div class="today-head">
+                        <button class="today-name" title="Show in heatmap">${escapeHtml(thing)}</button>
+                        <span class="today-meta">${missTwice ? `<span class="miss-twice-hint" title="Yesterday was missed">don't miss twice</span>` : streakHtml + rateHtml}</span>
+                    </div>
+                    <button class="today-btn note${entry?.comment ? ' has-note' : ''}" title="Comment" ${entry ? '' : 'disabled'}><i class="fas fa-comment"></i></button>
+                    <button class="today-btn win${entry?.result === 'w' ? ' active' : ''}" title="Win"><i class="fas fa-check"></i></button>
+                    <button class="today-btn loss${entry?.result === 'l' ? ' active' : ''}" title="Loss"><i class="fas fa-times"></i></button>
+                    <div class="today-strip">${stripHtml}</div>
+                `;
+                row.querySelector('.today-name').onclick = () => {
+                    document.getElementById('thingSelect').value = thing;
+                    updateDisplay();
+                };
+                const onToday = action => () => {
+                    if (!ensureCurrentDay()) {
+                        showToast("It's a new day. Tap again to log today");
+                        return;
+                    }
+                    action();
+                };
+                row.querySelector('.win').onclick = onToday(() => setResult(todayStr, thing, entry?.result === 'w' ? null : 'w'));
+                row.querySelector('.loss').onclick = onToday(() => setResult(todayStr, thing, entry?.result === 'l' ? null : 'l'));
+                row.querySelector('.note').onclick = onToday(() => editComment(todayStr, thing));
+                row.querySelectorAll('.strip-cell:not(.future)').forEach(cell => {
+                    cell.onclick = onToday(() => cycleResult(cell.dataset.date, thing));
+                });
+                list.appendChild(row);
+            });
+
+            document.getElementById('todayProgress').textContent = `${logged}/${things.length}`;
+        }
+
+        async function editComment(date, thing) {
+            const entry = findEntry(date, thing);
+            if (!entry) return;
+            const comment = await showCustomModal(`${thing} · ${date}`, '', null, false, 'text', 'Comment…', entry.comment || '');
+            if (comment !== false) setComment(date, thing, comment);
+        }
+        
+        // Update the heatmap visualization
+        function updateHeatmap() {
+            const heatmap = document.getElementById('heatmap');
+            const heatmapWrapper = document.getElementById('heatmapWrapper');
+
+            heatmap.innerHTML = '';
+
+            const todayStr = toLocalDateStr(new Date());
+            let currentDayCell = null;
+
+            // Pad the first week so columns start on Monday
+            const firstDayOfYear = new Date(currentYear, 0, 1).getDay(); // 0 (Sun) - 6 (Sat)
+            const startDayIndex = (firstDayOfYear === 0) ? 6 : firstDayOfYear - 1;
+            for (let i = 0; i < startDayIndex; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day-cell empty';
+                heatmap.appendChild(emptyCell);
+            }
+
+            for (let d = new Date(currentYear, 0, 1); d.getFullYear() === currentYear; d.setDate(d.getDate() + 1)) {
+                const dateStr = toLocalDateStr(d);
+                const dayCell = document.createElement('div');
+                dayCell.className = 'day-cell';
+                dayCell.dataset.date = dateStr;
+                if (dateStr === todayStr) {
+                    dayCell.classList.add('today');
+                    currentDayCell = dayCell;
+                }
+                if (dateStr > todayStr) dayCell.classList.add('future');
+                paintCell(dayCell);
+                heatmap.appendChild(dayCell);
+            }
+
+            // Scroll to current day on mobile
+            if (window.innerWidth <= 768 && currentDayCell) {
+                requestAnimationFrame(() => {
+                    const cellCenter = heatmap.offsetLeft + currentDayCell.offsetLeft + currentDayCell.offsetWidth / 2;
+                    heatmapWrapper.scrollLeft = Math.max(0, cellCenter - heatmapWrapper.offsetWidth / 2);
+                });
+            }
+        }
+
+        function paintCell(cell) {
+            const entry = currentThing !== null ? findEntry(cell.dataset.date, currentThing) : null;
+            cell.classList.toggle('win', entry?.result === 'w');
+            cell.classList.toggle('loss', entry?.result === 'l');
+            cell.classList.toggle('has-note', !!entry?.comment);
+        }
+
+        function dayDetailsHtml(date) {
+            const entry = currentThing !== null ? findEntry(date, currentThing) : null;
+            let html = `<strong>${date}</strong>`;
+            if (entry) {
+                html += `<br>${escapeHtml(entry.thing)}: ${entry.result === 'w' ? 'Win' : 'Loss'}`;
+                if (entry.comment) html += ` - <em>${escapeHtml(entry.comment)}</em>`;
+            } else {
+                html += '<br>No data';
+            }
+            return html;
+        }
+
+        // Heatmap interaction (delegated, so it always reads current data):
+        // tap cycles empty → win → loss → empty, long-press / right-click opens details + comment
+        function setupHeatmapInteractions() {
+            const heatmap = document.getElementById('heatmap');
+            const tooltip = document.getElementById('tooltip');
+            let pressTimer = null;
+            let pressStart = null;
+            let longPressFired = false;
+
+            const cellFrom = e => e.target.closest('.day-cell[data-date]');
+            const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
+
+            heatmap.addEventListener('pointerdown', e => {
+                const cell = cellFrom(e);
+                if (!cell) return;
+                longPressFired = false;
+                pressStart = { x: e.clientX, y: e.clientY };
+                cancelPress();
+                pressTimer = setTimeout(() => {
+                    longPressFired = true;
+                    tooltip.style.opacity = '0';
+                    openDayDetails(cell.dataset.date);
+                }, 500);
+            });
+            heatmap.addEventListener('pointermove', e => {
+                if (pressStart && Math.hypot(e.clientX - pressStart.x, e.clientY - pressStart.y) > 8) cancelPress();
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => heatmap.addEventListener(type, cancelPress));
+
+            heatmap.addEventListener('click', e => {
+                const cell = cellFrom(e);
+                if (!cell) return;
+                if (longPressFired) { longPressFired = false; return; }
+                if (!ensureCurrentDay()) {
+                    showToast("It's a new day. Tap again");
+                    return;
+                }
+                if (cell.classList.contains('future')) return;
+                if (currentThing === null) {
+                    showToast('Create a thing first');
+                    return;
+                }
+                cycleResult(cell.dataset.date, currentThing);
+                if (window.innerWidth > 768) showTooltip(cell);
+            });
+
+            heatmap.addEventListener('contextmenu', e => {
+                const cell = cellFrom(e);
+                if (!cell) return;
+                e.preventDefault();
+                if (!longPressFired) openDayDetails(cell.dataset.date);
+            });
+
+            // Desktop tooltip
+            heatmap.addEventListener('mouseover', e => {
+                const cell = cellFrom(e);
+                if (cell && window.innerWidth > 768) showTooltip(cell);
+            });
+            heatmap.addEventListener('mouseout', e => {
+                if (cellFrom(e)) tooltip.style.opacity = '0';
+            });
+        }
+
+        function showTooltip(cell) {
+            const tooltip = document.getElementById('tooltip');
+            const rect = cell.getBoundingClientRect();
+            tooltip.innerHTML = dayDetailsHtml(cell.dataset.date);
+            tooltip.style.left = (rect.left + window.scrollX - tooltip.offsetWidth / 2 + rect.width / 2) + 'px';
+            tooltip.style.top = (rect.top + window.scrollY - tooltip.offsetHeight - 10) + 'px';
+            tooltip.style.opacity = '1';
+        }
+
+        function openDayDetails(date) {
+            if (currentThing !== null && findEntry(date, currentThing)) {
+                editComment(date, currentThing);
+            } else {
+                showCustomModal('Day Details', dayDetailsHtml(date) + '<br><br>Tap the square to log it.', null, true);
+            }
+        }
+        
+        // Update the statistics section (selected thing + year).
+        // Streaks count consecutive days, so an unlogged day breaks them.
+        function updateStats() {
+            const results = currentThing !== null ? resultsByDate(currentThing) : new Map();
+            const todayStr = toLocalDateStr(new Date());
+            const yearStart = `${currentYear}-01-01`;
+            const yearEnd = `${currentYear}-12-31`;
+            const lastDay = yearEnd < todayStr ? yearEnd : todayStr; // don't count future days
+
+            let wins = 0, losses = 0, bestStreak = 0, run = 0, daysElapsed = 0;
+            for (let day = yearStart; day <= lastDay; day = addDays(day, 1)) {
+                daysElapsed++;
+                const result = results.get(day);
+                if (result === 'w') wins++;
+                if (result === 'l') losses++;
+                run = result === 'w' ? run + 1 : 0;
+                bestStreak = Math.max(bestStreak, run);
+            }
+            const logged = wins + losses;
+            const streak = getCurrentStreak(results, todayStr);
+
+            document.getElementById('winRate').textContent = logged > 0 ? Math.round(wins / logged * 100) + '%' : '–';
+            document.getElementById('winLoss').textContent = `${wins} W · ${losses} L`;
+            const streakEl = document.getElementById('currentStreak');
+            streakEl.textContent = streak.length > 0 ? `${streak.length} ${streak.type === 'w' ? 'W' : 'L'}` : '0';
+            streakEl.style.color = streak.type === 'w' ? '#68D391' : streak.type === 'l' ? '#FC8181' : '';
+            document.getElementById('bestStreak').textContent = bestStreak;
+            document.getElementById('bestStreakSub').textContent = `wins in ${currentYear}`;
+            document.getElementById('loggedRate').textContent = daysElapsed > 0 ? Math.round(logged / daysElapsed * 100) + '%' : '–';
+            document.getElementById('loggedDays').textContent = `${logged} / ${daysElapsed}`;
+        }
+
+        // --- Patterns (selected thing + year) ---
+
+        // Bars show win rate per bucket; bar width/height = win %, label = logged days
+        function renderBars(containerId, buckets) {
+            document.getElementById(containerId).innerHTML = buckets.map(b => {
+                const logged = b.wins + b.losses;
+                const rate = logged > 0 ? Math.round(b.wins / logged * 100) : null;
+                return `
+                    <div class="bar" title="${b.label}: ${rate === null ? 'no data' : rate + '%'} (${b.wins} W · ${b.losses} L)">
+                        <div class="bar-value">${rate === null ? '–' : rate}</div>
+                        <div class="bar-track"><div class="bar-fill" style="height:${rate ?? 0}%"></div></div>
+                        <div class="bar-label">${b.label}</div>
+                    </div>`;
+            }).join('');
+        }
+
+        function updatePatterns() {
+            const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(label => ({ label, wins: 0, losses: 0 }));
+            const months = Array.from({ length: 12 }, (_, i) => ({
+                label: new Date(2000, i, 1).toLocaleDateString(undefined, { month: 'narrow' }),
+                wins: 0,
+                losses: 0
+            }));
+
+            data.forEach(item => {
+                if (item.thing !== currentThing || yearOf(item.date) !== currentYear) return;
+                const [y, m, d] = item.date.split('-').map(Number);
+                const weekday = (new Date(y, m - 1, d).getDay() + 6) % 7; // Mon = 0
+                const key = item.result === 'w' ? 'wins' : 'losses';
+                weekdays[weekday][key]++;
+                months[m - 1][key]++;
+            });
+
+            // Streak runs in days; an unlogged day ends a run, same as the streak tiles
+            const results = currentThing !== null ? resultsByDate(currentThing) : new Map();
+            const todayStr = toLocalDateStr(new Date());
+            const yearEnd = `${currentYear}-12-31`;
+            const lastDay = yearEnd < todayStr ? yearEnd : todayStr;
+            const runs = { w: [], l: [] };
+            let runType = null, runLength = 0;
+            for (let day = `${currentYear}-01-01`; day <= addDays(lastDay, 1); day = addDays(day, 1)) {
+                const result = day <= lastDay ? results.get(day) || null : null; // sentinel day closes the last run
+                if (result === runType) {
+                    runLength++;
+                    continue;
+                }
+                if (runType) runs[runType].push(runLength);
+                runType = result;
+                runLength = 1;
+            }
+            const avg = list => list.length ? (list.reduce((sum, n) => sum + n, 0) / list.length).toFixed(1) : '–';
+            document.getElementById('avgWinStreak').textContent = avg(runs.w);
+            document.getElementById('avgLossStreak').textContent = avg(runs.l);
+            document.getElementById('winStreakCount').textContent = runs.w.length;
+
+            document.getElementById('patternsSub').textContent = currentThing ? `${currentThing} · ${currentYear}` : '';
+            renderBars('weekdayBars', weekdays);
+            renderBars('monthBars', months);
+        }
+
+        // --- Notes (comments for the selected thing, all years) ---
+
+        const NOTES_PAGE = 20;
+        let notesLimit = NOTES_PAGE;
+
+        function updateNotes() {
+            const query = document.getElementById('notesSearch').value.trim().toLowerCase();
+            const notes = data
+                .filter(item => item.thing === currentThing && item.comment && item.comment.toLowerCase().includes(query))
+                .sort((a, b) => b.date.localeCompare(a.date));
+
+            document.getElementById('notesSub').textContent = currentThing ? `${currentThing} · ${notes.length}` : '';
+            const list = document.getElementById('notesList');
+            if (notes.length === 0) {
+                list.innerHTML = `<div class="notes-empty">${query ? 'No matching comments.' : 'No comments yet. Long-press a day to add one.'}</div>`;
+                return;
+            }
+
+            list.innerHTML = notes.slice(0, notesLimit).map(item => `
+                <button class="note-item" data-date="${item.date}">
+                    <span class="note-dot ${item.result === 'w' ? 'win' : 'loss'}"></span>
+                    <span class="note-date">${item.date}</span>
+                    <span class="note-text">${escapeHtml(item.comment)}</span>
+                </button>`).join('');
+            if (notes.length > notesLimit) {
+                list.insertAdjacentHTML('beforeend', `<button class="notes-more">Show ${Math.min(NOTES_PAGE, notes.length - notesLimit)} more</button>`);
+            }
+        }
+
+        function setupNotes() {
+            document.getElementById('notesSearch').addEventListener('input', () => {
+                notesLimit = NOTES_PAGE;
+                updateNotes();
+            });
+            document.getElementById('notesList').addEventListener('click', e => {
+                if (e.target.closest('.notes-more')) {
+                    notesLimit += NOTES_PAGE;
+                    updateNotes();
+                    return;
+                }
+                const item = e.target.closest('.note-item');
+                if (item) editComment(item.dataset.date, currentThing);
+            });
+        }
+
+        // --- Custom Modal Functions ---
+        let resolveModalPromise;
+
+        function showCustomModal(title, message, onConfirmCallback = null, hideCancel = false, inputType = null, inputPlaceholder = '', inputValue = '') {
+            const modal = document.getElementById('customModal');
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').innerHTML = message;
+            
+            const confirmBtn = document.getElementById('modalConfirmBtn');
+            const cancelBtn = document.getElementById('modalCancelBtn');
+            const modalInput = document.getElementById('modalInput');
+
+            if (inputType === 'text') {
+                modalInput.style.display = 'block';
+                modalInput.placeholder = inputPlaceholder;
+                modalInput.value = inputValue;
+                modalInput.onkeydown = e => { if (e.key === 'Enter') confirmBtn.click(); };
+                setTimeout(() => modalInput.focus(), 50);
+            } else {
+                modalInput.style.display = 'none';
+            }
+
+            confirmBtn.onclick = () => {
+                modal.classList.remove('visible');
+                const inputValue = modalInput.value;
+                if (onConfirmCallback) onConfirmCallback(inputValue);
+                if (resolveModalPromise) resolveModalPromise(inputType === 'text' ? inputValue : true);
+            };
+
+            if (hideCancel) {
+                cancelBtn.style.display = 'none';
+            } else {
+                cancelBtn.style.display = 'inline-block';
+                cancelBtn.onclick = () => {
+                    modal.classList.remove('visible');
+                    if (resolveModalPromise) resolveModalPromise(false);
+                };
+            }
+            modal.classList.add('visible');
+
+            return new Promise(resolve => {
+                resolveModalPromise = resolve;
+            });
+        }
+
+        async function confirmResetData() {
+            const confirmed = await showCustomModal(
+                'Reset all data?',
+                'This deletes every entry and thing. Export a CSV first if you want a backup.'
+            );
+            if (confirmed) {
+                closeSettings();
+                resetData();
+            }
+        }
+
+        // --- Things Management ---
+
+        async function createNewThing() {
+            const name = await showCustomModal('New Thing', '', null, false, 'text', 'e.g., Running, Journaling, Learning');
+            if (name === false || !name.trim()) return;
+            const trimmedName = name.trim();
+
+            const existing = meta.things.find(t => t.name === trimmedName);
+            if (existing) {
+                existing.archived = false;
+            } else {
+                meta.things.push({ name: trimmedName, archived: false });
+            }
+            currentThing = trimmedName;
+            saveMeta();
+            refreshAll();
+            showToast(`Added "${trimmedName}"`);
+        }
+
+        async function renameThing(oldName) {
+            const name = await showCustomModal('Rename Thing', '', null, false, 'text', 'New name', oldName);
+            if (name === false || !name.trim() || name.trim() === oldName) return;
+            const newName = name.trim();
+            if (meta.things.some(t => t.name === newName)) {
+                showToast(`"${newName}" already exists`);
+                return;
+            }
+            meta.things.find(t => t.name === oldName).name = newName;
+            data.forEach(item => {
+                if (item.thing === oldName) item.thing = newName;
+            });
+            if (currentThing === oldName) currentThing = newName;
+            saveDataToLocalStorage();
+            saveMeta();
+            refreshAll();
+        }
+
+        // Archived things keep their entries but disappear from Today and the selector
+        function toggleArchive(name) {
+            const thing = meta.things.find(t => t.name === name);
+            thing.archived = !thing.archived;
+            saveMeta();
+            refreshAll();
+        }
+
+        // --- Settings Sheet ---
+
+        function renderSettings() {
+            const counts = {};
+            data.forEach(item => { counts[item.thing] = (counts[item.thing] || 0) + 1; });
+            // Active things in their order, archived at the end
+            const things = [...meta.things.filter(t => !t.archived), ...meta.things.filter(t => t.archived)];
+            const activeCount = meta.things.filter(t => !t.archived).length;
+            const list = document.getElementById('settingsThings');
+
+            document.getElementById('lastExport').textContent = lastExportText();
+            document.getElementById('storageStatus').textContent =
+                storagePersisted === true ? 'kept permanently' : storagePersisted === false ? 'may be cleared by the browser, so export regularly' : 'unknown';
+
+            if (things.length === 0) {
+                list.innerHTML = '<div class="notes-empty">No things yet.</div>';
+                return;
+            }
+            list.innerHTML = '';
+            things.forEach((thing, index) => {
+                const row = document.createElement('div');
+                row.className = 'settings-thing' + (thing.archived ? ' archived' : '');
+                const orderButtons = thing.archived ? '' : `
+                    <button class="icon-btn small up" title="Move up" ${index === 0 ? 'disabled' : ''}><i class="fas fa-chevron-up"></i></button>
+                    <button class="icon-btn small down" title="Move down" ${index === activeCount - 1 ? 'disabled' : ''}><i class="fas fa-chevron-down"></i></button>`;
+                row.innerHTML = `
+                    <span class="settings-thing-name">${escapeHtml(thing.name)}</span>
+                    <span class="settings-thing-count">${counts[thing.name] || 0}</span>
+                    ${orderButtons}
+                    <button class="icon-btn rename" title="Rename"><i class="fas fa-pen"></i></button>
+                    <button class="icon-btn archive" title="${thing.archived ? 'Unarchive' : 'Archive'}"><i class="fas fa-${thing.archived ? 'box-open' : 'archive'}"></i></button>
+                `;
+                if (!thing.archived) {
+                    row.querySelector('.up').onclick = () => moveThing(thing.name, -1);
+                    row.querySelector('.down').onclick = () => moveThing(thing.name, 1);
+                }
+                row.querySelector('.rename').onclick = () => renameThing(thing.name);
+                row.querySelector('.archive').onclick = () => toggleArchive(thing.name);
+                list.appendChild(row);
+            });
+        }
+
+        function openSettings() {
+            renderSettings();
+            document.getElementById('settingsSheet').classList.add('visible');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsSheet').classList.remove('visible');
+        }
+
+        // --- Initial Setup on Window Load ---
+        // Redraw when the app comes back to the foreground on a new day (and check once a minute while open)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') ensureCurrentDay();
+        });
+        window.addEventListener('pageshow', () => ensureCurrentDay());
+        window.addEventListener('focus', () => ensureCurrentDay());
+        setInterval(() => ensureCurrentDay(), 60 * 1000);
+
+        window.onload = function() {
+            setupHeatmapInteractions();
+            setupNotes();
+            document.getElementById('settingsSheet').addEventListener('click', e => {
+                if (e.target.id === 'settingsSheet') closeSettings();
+            });
+            loadDataFromLocalStorage();
+        };
+        
+        // --- Service Worker Registration for PWA ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js')
+                    .then(function(registration) {
+                        console.log('Service Worker registered with scope: ', registration.scope);
+                    })
+                    .catch(function(error) {
+                        console.log('Service Worker registration failed: ', error);
+                    });
+            });
+        }
+
+        // Make functions globally accessible for HTML event attributes
+        window.updateDisplay = updateDisplay;
+        window.exportCSV = exportCSV;
+        window.confirmResetData = confirmResetData;
+        window.createNewThing = createNewThing;
+        window.openSettings = openSettings;
+        window.snoozeBackupReminder = snoozeBackupReminder;
+        window.closeSettings = closeSettings;
+    </script>
+</body>
+</html>
