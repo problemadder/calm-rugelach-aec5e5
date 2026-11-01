@@ -236,21 +236,22 @@
             border-top: 1px solid #4A5568;
         }
 
+        /* Name on top, streak / rate / hint underneath, so nothing gets cut off */
         .today-head {
             display: flex;
-            align-items: baseline;
-            gap: 10px;
+            flex-direction: column;
+            align-items: flex-start;
             min-width: 0;
         }
 
         .today-meta {
             display: flex;
-            gap: 8px;
-            min-width: 0;
-            overflow: hidden;
-            font-size: 12px;
+            flex-wrap: wrap;
+            column-gap: 10px;
+            min-height: 16px;
+            font-size: 13px;
+            line-height: 16px;
             color: #A0AEC0;
-            white-space: nowrap;
         }
 
         .today-meta .streak-w {
@@ -275,7 +276,8 @@
             grid-column: 1 / -1;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            margin-top: 2px;
             -webkit-user-select: none;
             user-select: none;
         }
@@ -286,12 +288,21 @@
             gap: 3px;
         }
 
+        /* Weekly win count as a small badge, so it doesn't read like another day */
         .week-count {
-            min-width: 14px;
+            min-width: 22px;
+            padding: 0 5px;
+            border-radius: 9px;
+            background: #1A202C;
             font-size: 12px;
-            color: #A0AEC0;
-            text-align: right;
+            line-height: 18px;
+            color: #CBD5E0;
+            text-align: center;
             font-variant-numeric: tabular-nums;
+        }
+
+        .week-count:not(.this) {
+            margin-right: 6px;
         }
 
         .week-count.this.ahead {
@@ -338,7 +349,8 @@
             border: none;
             color: #E2E8F0;
             font-size: 16px;
-            padding: 4px 0;
+            line-height: 20px;
+            padding: 0;
             cursor: pointer;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -785,6 +797,130 @@
             cursor: pointer;
         }
 
+        [hidden] {
+            display: none !important;
+        }
+
+        /* Next time counters */
+        .next-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            align-items: center;
+            column-gap: 12px;
+            row-gap: 6px;
+            padding: 10px 0;
+            border-top: 1px solid #4A5568;
+        }
+
+        .next-row:first-child {
+            border-top: none;
+            padding-top: 4px;
+        }
+
+        .next-info {
+            min-width: 0;
+            cursor: pointer;
+        }
+
+        .next-name {
+            font-size: 16px;
+            line-height: 20px;
+            color: #E2E8F0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .next-name i {
+            font-size: 11px;
+            color: #718096;
+        }
+
+        .next-sub {
+            font-size: 13px;
+            line-height: 16px;
+            color: #A0AEC0;
+        }
+
+        .next-count {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .next-days {
+            font-size: 26px;
+            font-weight: 700;
+            line-height: 1;
+            color: #F7FAFC;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .next-unit {
+            font-size: 13px;
+            color: #A0AEC0;
+        }
+
+        .next-ready {
+            font-size: 16px;
+            font-weight: 700;
+            color: #68D391;
+        }
+
+        .next-use {
+            height: 40px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: 1px solid #4A5568;
+            background: #283140;
+            color: #E2E8F0;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .next-bar {
+            grid-column: 1 / -1;
+            height: 4px;
+            border-radius: 2px;
+            background: #4A5568;
+            overflow: hidden;
+        }
+
+        .next-bar div {
+            height: 100%;
+            background: #63B3ED;
+        }
+
+        .next-row.ready .next-bar div {
+            background: #68D391;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #A0AEC0;
+        }
+
+        .field .modal-input {
+            width: 100%;
+            margin-bottom: 0;
+        }
+
+        .field-hint {
+            font-size: 12px;
+            color: #A0AEC0;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .add-counter {
+            margin-top: 8px;
+        }
+
         .settings-actions {
             display: flex;
             flex-wrap: wrap;
@@ -895,6 +1031,11 @@
             <div id="todayList"></div>
         </div>
 
+        <div class="card" id="nextPanel" hidden>
+            <h2>Next time</h2>
+            <div id="nextList"></div>
+        </div>
+
         <div class="controls">
             <select id="thingSelect" onchange="updateDisplay()" aria-label="Thing"></select>
             <select id="yearSelect" onchange="updateDisplay()" aria-label="Year"></select>
@@ -990,6 +1131,9 @@
             </div>
             <h4>Things</h4>
             <div id="settingsThings"></div>
+            <h4>Next time counters</h4>
+            <div id="settingsCounters"></div>
+            <button class="btn secondary add-counter" onclick="openCounterEditor()"><i class="fas fa-hourglass-half"></i> Add counter</button>
             <h4>Data</h4>
             <div class="settings-actions">
                 <div class="file-input-wrapper">
@@ -1002,6 +1146,35 @@
             <div class="settings-info">
                 Last export: <span id="lastExport"></span><br>
                 Storage: <span id="storageStatus"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Next Time Counter Editor -->
+    <div id="counterModal" class="modal-overlay">
+        <div class="modal-content settings">
+            <h3 id="counterModalTitle">New counter</h3>
+            <label class="field">
+                <span>Linked to</span>
+                <select id="counterThing" class="modal-input"></select>
+            </label>
+            <label class="field">
+                <span>Name</span>
+                <input type="text" id="counterName" class="modal-input" placeholder="e.g. Chips" />
+            </label>
+            <label class="field">
+                <span>Allowed every … days</span>
+                <input type="number" id="counterDays" class="modal-input" min="1" inputmode="numeric" placeholder="e.g. 21" />
+            </label>
+            <label class="field" id="counterLastField">
+                <span>Last time</span>
+                <input type="date" id="counterLast" class="modal-input" />
+            </label>
+            <p class="field-hint">Linked counters restart when you log a loss for that thing. Unlinked ones restart when you tap "Had it". Counters never affect your stats.</p>
+            <div class="modal-buttons">
+                <button class="btn" onclick="saveCounter()">Save</button>
+                <button class="btn secondary" onclick="closeCounterEditor()">Cancel</button>
+                <button class="btn danger" id="counterDeleteBtn" onclick="deleteCounter()" title="Delete counter"><i class="fas fa-trash"></i></button>
             </div>
         </div>
     </div>
@@ -1121,6 +1294,7 @@
             updateTodayPanel();
             updatePatterns();
             updateNotes();
+            updateNextPanel(); // linked counters reset on a logged loss
         }
 
         // --- Toast ---
@@ -1147,13 +1321,14 @@
 
         // Things list + UI state, kept separately so a new thing survives a reload before its first entry
         // meta = { things: [{ name, archived }], selectedThing }
-        let meta = { things: [], selectedThing: null };
+        // counters = [{ id, name, days, thing, last }]: "Next time" countdowns, outside all stats
+        let meta = { things: [], selectedThing: null, counters: [] };
 
         function loadDataFromLocalStorage() {
             try {
                 data = JSON.parse(localStorage.getItem('thingsTrackerData') || '[]');
                 data.sort((a, b) => new Date(a.date) - new Date(b.date));
-                meta = { things: [], selectedThing: null, ...JSON.parse(localStorage.getItem('thingsTrackerMeta') || '{}') };
+                meta = { things: [], selectedThing: null, counters: [], ...JSON.parse(localStorage.getItem('thingsTrackerMeta') || '{}') };
             } catch (error) {
                 console.error("Error loading data from Local Storage:", error);
                 showCustomModal('Data Error', 'Failed to load your data from local storage.', null, true);
@@ -1275,7 +1450,7 @@
         async function resetData() {
             const snapshot = { data: [...data], meta: JSON.parse(JSON.stringify(meta)) };
             data = [];
-            meta = { things: [], selectedThing: null, ordered: true };
+            meta = { things: [], selectedThing: null, ordered: true, counters: [] };
             currentThing = null;
             saveDataToLocalStorage();
             saveMeta();
@@ -1437,6 +1612,7 @@
             updatePatterns();
             updateNotes();
             updateBackupBanner();
+            updateNextPanel();
         }
 
         // --- Today Panel ---
@@ -1484,7 +1660,7 @@
                     ? `<span class="streak-${streak.type}" title="Current streak (days)"><i class="fas fa-${streak.type === 'w' ? 'fire' : 'times'}"></i> ${streak.length}</span>`
                     : '';
                 const rateHtml = logged30 > 0
-                    ? `<span title="Win rate, last 30 days (${wins30}/${logged30})">${Math.round(wins30 / logged30 * 100)}%</span>`
+                    ? `<span title="Win rate, last 30 days (${wins30}/${logged30})">${Math.round(wins30 / logged30 * 100)}% last 30d</span>`
                     : '';
 
                 const weekHtml = monday => {
@@ -1513,7 +1689,7 @@
                 row.innerHTML = `
                     <div class="today-head">
                         <button class="today-name" title="Show in heatmap">${escapeHtml(thing)}</button>
-                        <span class="today-meta">${missTwice ? `<span class="miss-twice-hint" title="Yesterday was missed">don't miss twice</span>` : streakHtml + rateHtml}</span>
+                        <span class="today-meta">${missTwice ? `<span class="miss-twice-hint" title="Yesterday was missed"><i class="fas fa-exclamation-triangle"></i> don't miss twice</span>` : streakHtml + rateHtml}</span>
                     </div>
                     <button class="today-btn note${entry?.comment ? ' has-note' : ''}" title="Comment" ${entry ? '' : 'disabled'}><i class="fas fa-comment"></i></button>
                     <button class="today-btn win${entry?.result === 'w' ? ' active' : ''}" title="Win"><i class="fas fa-check"></i></button>
@@ -1916,6 +2092,9 @@
                 if (item.thing === oldName) item.thing = newName;
             });
             if (currentThing === oldName) currentThing = newName;
+            meta.counters.forEach(counter => {
+                if (counter.thing === oldName) counter.thing = newName;
+            });
             saveDataToLocalStorage();
             saveMeta();
             refreshAll();
@@ -1929,6 +2108,187 @@
             refreshAll();
         }
 
+        // --- Next Time Counters ---
+        // Countdown until something is allowed again ("chips every 21 days").
+        // Linked to a tracked thing: restarts on the latest logged loss for it.
+        // Not linked: restarts when you tap "Had it". Counters never touch entries or stats.
+
+        function formatInterval(days) {
+            if (days % 7 === 0) return days === 7 ? 'every week' : `every ${days / 7} weeks`;
+            return days === 1 ? 'every day' : `every ${days} days`;
+        }
+
+        function formatShortDate(dateStr) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+        }
+
+        function lastLossDate(thing, todayStr) {
+            let last = null;
+            data.forEach(item => {
+                if (item.thing === thing && item.result === 'l' && item.date <= todayStr && (!last || item.date > last)) last = item.date;
+            });
+            return last;
+        }
+
+        function counterState(counter, todayStr) {
+            const last = counter.thing ? lastLossDate(counter.thing, todayStr) : counter.last;
+            if (!last) return { last: null, remaining: 0, progress: 1 };
+            const elapsed = daysBetween(last, todayStr);
+            return {
+                last,
+                remaining: counter.days - elapsed,
+                nextDate: addDays(last, counter.days),
+                progress: Math.min(1, elapsed / counter.days)
+            };
+        }
+
+        function updateNextPanel() {
+            const panel = document.getElementById('nextPanel');
+            const counters = meta.counters || [];
+            panel.hidden = counters.length === 0;
+            if (counters.length === 0) return;
+
+            const todayStr = toLocalDateStr(new Date());
+            const list = document.getElementById('nextList');
+            list.innerHTML = '';
+            counters.forEach(counter => {
+                const state = counterState(counter, todayStr);
+                const ready = state.remaining <= 0;
+
+                let countHtml, sub;
+                if (ready) {
+                    countHtml = `<span class="next-ready"><i class="fas fa-check"></i> now</span>`;
+                    sub = !state.last ? formatInterval(counter.days)
+                        : state.remaining === 0 ? 'allowed again today'
+                        : `allowed since ${-state.remaining} day${state.remaining === -1 ? '' : 's'}`;
+                } else {
+                    countHtml = `<span class="next-days">${state.remaining}</span><span class="next-unit">day${state.remaining === 1 ? '' : 's'}</span>`;
+                    sub = `next: ${formatShortDate(state.nextDate)}`;
+                }
+
+                const row = document.createElement('div');
+                row.className = 'next-row' + (ready ? ' ready' : '');
+                row.innerHTML = `
+                    <div class="next-info">
+                        <div class="next-name">${escapeHtml(counter.name)}${counter.thing ? ` <i class="fas fa-link" title="Linked to ${escapeHtml(counter.thing)}"></i>` : ''}</div>
+                        <div class="next-sub">${sub}</div>
+                    </div>
+                    <div class="next-count">${countHtml}</div>
+                    <button class="next-use" title="${counter.thing ? `Logs a loss for ${escapeHtml(counter.thing)} today` : 'Restart the countdown from today'}">Had it</button>
+                    <div class="next-bar"><div style="width:${Math.round(state.progress * 100)}%"></div></div>
+                `;
+                row.querySelector('.next-info').onclick = () => openCounterEditor(counter.id);
+                row.querySelector('.next-use').onclick = () => {
+                    if (!ensureCurrentDay()) {
+                        showToast("It's a new day. Tap again");
+                        return;
+                    }
+                    useCounter(counter.id);
+                };
+                list.appendChild(row);
+            });
+        }
+
+        function useCounter(id) {
+            const counter = meta.counters.find(c => c.id === id);
+            const todayStr = toLocalDateStr(new Date());
+            if (counter.thing) {
+                // Linked: the loss entry is the source of truth (setResult offers Undo when clearing)
+                if (findEntry(todayStr, counter.thing)?.result === 'l') {
+                    showToast(`Already logged for ${counter.thing} today`);
+                    return;
+                }
+                setResult(todayStr, counter.thing, 'l');
+                showToast(`${counter.name}: next time in ${counter.days} days (logged a loss for ${counter.thing})`);
+                return;
+            }
+            const previous = counter.last;
+            counter.last = todayStr;
+            saveMeta();
+            updateNextPanel();
+            showToast(`${counter.name}: next time in ${counter.days} days`, 'Undo', () => {
+                counter.last = previous;
+                saveMeta();
+                updateNextPanel();
+            });
+        }
+
+        // Editor for a new (id = null) or existing counter
+        let editingCounterId = null;
+
+        function openCounterEditor(id = null) {
+            editingCounterId = id;
+            const counter = id ? meta.counters.find(c => c.id === id) : null;
+            document.getElementById('counterModalTitle').textContent = counter ? 'Edit counter' : 'New counter';
+            document.getElementById('counterName').value = counter?.name || '';
+            document.getElementById('counterDays').value = counter?.days || '';
+
+            const select = document.getElementById('counterThing');
+            select.innerHTML = '<option value="">Not linked (counter only)</option>' +
+                meta.things.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+            select.value = counter?.thing || '';
+
+            document.getElementById('counterLast').value = counter?.last || toLocalDateStr(new Date());
+            document.getElementById('counterLastField').hidden = !!select.value;
+            document.getElementById('counterDeleteBtn').hidden = !counter;
+            document.getElementById('counterModal').classList.add('visible');
+        }
+
+        function closeCounterEditor() {
+            document.getElementById('counterModal').classList.remove('visible');
+        }
+
+        function saveCounter() {
+            const name = document.getElementById('counterName').value.trim();
+            const thing = document.getElementById('counterThing').value || null;
+            const days = parseInt(document.getElementById('counterDays').value, 10);
+            const last = document.getElementById('counterLast').value || null;
+            if (!(name || thing) || !(days > 0)) {
+                showToast('Enter a name and a number of days');
+                return;
+            }
+
+            const fields = { name: name || thing, days, thing, last: thing ? null : last };
+            if (editingCounterId) {
+                Object.assign(meta.counters.find(c => c.id === editingCounterId), fields);
+            } else {
+                meta.counters.push({ id: Date.now().toString(36), ...fields });
+            }
+            saveMeta();
+            closeCounterEditor();
+            updateNextPanel();
+            if (document.getElementById('settingsSheet').classList.contains('visible')) renderSettings();
+        }
+
+        async function deleteCounter() {
+            const index = meta.counters.findIndex(c => c.id === editingCounterId);
+            const counter = meta.counters[index];
+            closeCounterEditor();
+            meta.counters.splice(index, 1);
+            saveMeta();
+            updateNextPanel();
+            if (document.getElementById('settingsSheet').classList.contains('visible')) renderSettings();
+            showToast(`Deleted "${counter.name}"`, 'Undo', () => {
+                meta.counters.splice(index, 0, counter);
+                saveMeta();
+                updateNextPanel();
+                if (document.getElementById('settingsSheet').classList.contains('visible')) renderSettings();
+            });
+        }
+
+        function setupCounterEditor() {
+            const select = document.getElementById('counterThing');
+            select.addEventListener('change', () => {
+                document.getElementById('counterLastField').hidden = !!select.value;
+                const nameInput = document.getElementById('counterName');
+                if (select.value && !nameInput.value.trim()) nameInput.value = select.value;
+            });
+            document.getElementById('counterModal').addEventListener('click', e => {
+                if (e.target.id === 'counterModal') closeCounterEditor();
+            });
+        }
+
         // --- Settings Sheet ---
 
         function renderSettings() {
@@ -1938,6 +2298,20 @@
             const things = [...meta.things.filter(t => !t.archived), ...meta.things.filter(t => t.archived)];
             const activeCount = meta.things.filter(t => !t.archived).length;
             const list = document.getElementById('settingsThings');
+
+            const counterList = document.getElementById('settingsCounters');
+            counterList.innerHTML = meta.counters.length === 0 ? '<div class="notes-empty">No counters yet.</div>' : '';
+            meta.counters.forEach(counter => {
+                const row = document.createElement('div');
+                row.className = 'settings-thing';
+                row.innerHTML = `
+                    <span class="settings-thing-name">${escapeHtml(counter.name)}</span>
+                    <span class="settings-thing-count">${formatInterval(counter.days)}${counter.thing ? ' · linked' : ''}</span>
+                    <button class="icon-btn" title="Edit"><i class="fas fa-pen"></i></button>
+                `;
+                row.querySelector('button').onclick = () => openCounterEditor(counter.id);
+                counterList.appendChild(row);
+            });
 
             document.getElementById('lastExport').textContent = lastExportText();
             document.getElementById('storageStatus').textContent =
@@ -1992,6 +2366,7 @@
         window.onload = function() {
             setupHeatmapInteractions();
             setupNotes();
+            setupCounterEditor();
             document.getElementById('settingsSheet').addEventListener('click', e => {
                 if (e.target.id === 'settingsSheet') closeSettings();
             });
@@ -2018,6 +2393,10 @@
         window.createNewThing = createNewThing;
         window.openSettings = openSettings;
         window.snoozeBackupReminder = snoozeBackupReminder;
+        window.openCounterEditor = openCounterEditor;
+        window.closeCounterEditor = closeCounterEditor;
+        window.saveCounter = saveCounter;
+        window.deleteCounter = deleteCounter;
         window.closeSettings = closeSettings;
     </script>
 </body>
