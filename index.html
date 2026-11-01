@@ -1031,7 +1031,7 @@
             <div id="todayList"></div>
         </div>
 
-        <div class="card" id="nextPanel" hidden>
+        <div class="card" id="nextPanel">
             <h2>Next time</h2>
             <div id="nextList"></div>
         </div>
@@ -2146,11 +2146,16 @@
         function updateNextPanel() {
             const panel = document.getElementById('nextPanel');
             const counters = meta.counters || [];
-            panel.hidden = counters.length === 0;
-            if (counters.length === 0) return;
+            const list = document.getElementById('nextList');
+            panel.hidden = false;
+            if (counters.length === 0) {
+                list.innerHTML = `
+                    <div class="notes-empty">Count down until something is allowed again, e.g. chips every 3 weeks.</div>
+                    <button class="btn secondary add-counter" onclick="openCounterEditor()"><i class="fas fa-hourglass-half"></i> Add counter</button>`;
+                return;
+            }
 
             const todayStr = toLocalDateStr(new Date());
-            const list = document.getElementById('nextList');
             list.innerHTML = '';
             counters.forEach(counter => {
                 const state = counterState(counter, todayStr);
@@ -2375,10 +2380,24 @@
         
         // --- Service Worker Registration for PWA ---
         if ('serviceWorker' in navigator) {
+            // Reload once when a new version takes over, so the update shows without closing the app.
+            // Skipped on the very first install (no previous controller), which would only flash the page.
+            const hadController = !!navigator.serviceWorker.controller;
+            let reloadingForUpdate = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!hadController || reloadingForUpdate) return;
+                reloadingForUpdate = true;
+                window.location.reload();
+            });
+
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
                     .then(function(registration) {
                         console.log('Service Worker registered with scope: ', registration.scope);
+                        // An installed app can stay open for days: look for a new version whenever it comes back
+                        document.addEventListener('visibilitychange', () => {
+                            if (document.visibilityState === 'visible') registration.update().catch(() => {});
+                        });
                     })
                     .catch(function(error) {
                         console.log('Service Worker registration failed: ', error);
