@@ -857,6 +857,29 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .next-stats {
+            display: flex;
+            flex-wrap: wrap;
+            column-gap: 10px;
+            margin-top: 2px;
+            font-size: 12px;
+            line-height: 16px;
+            color: #A0AEC0;
+        }
+
+        .next-streak {
+            color: #F6AD55;
+            font-weight: 600;
+        }
+
+        .next-best i {
+            color: #F6E05E;
+        }
+
+        .next-early {
+            color: #FC8181;
+        }
+
         .next-unit {
             font-size: 13px;
             color: #A0AEC0;
@@ -1175,7 +1198,7 @@
                 <span>Last time</span>
                 <input type="date" id="counterLast" class="modal-input" />
             </label>
-            <p class="field-hint">Linked counters restart when you log a loss for that thing. Unlinked ones restart when you tap "Had it". Each restart adds the days per loop to the next wait (21, 24, 27 … with +3). Counters never affect your stats.</p>
+            <p class="field-hint">Linked counters restart when you log a loss for that thing. Unlinked ones restart when you tap "Had it". Wait the full time and the next wait grows by the days per loop (21, 24, 27 … with +3). Give in early and it drops back to the starting wait, while your best run stays as the record to beat. Counters never affect your stats.</p>
             <div class="modal-buttons">
                 <button class="btn" onclick="saveCounter()">Save</button>
                 <button class="btn secondary" onclick="closeCounterEditor()">Cancel</button>
@@ -1339,6 +1362,13 @@
                 showCustomModal('Data Error', 'Failed to load your data from local storage.', null, true);
             }
             syncThingsWithData();
+            // Unlinked counters used to store only the last "Had it"; they now keep the full history
+            (meta.counters || []).forEach(counter => {
+                if (!counter.thing && !counter.history) counter.history = counter.last ? [counter.last] : [];
+                delete counter.last;
+                delete counter.loops;
+            });
+            saveMeta();
             if (!meta.ordered) {
                 // One-time switch from alphabetical to custom order: start from the old alphabetical order
                 meta.things.sort((a, b) => a.name.localeCompare(b.name));
@@ -2128,39 +2158,59 @@
             return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
         }
 
-        function lastLossDate(thing, todayStr) {
-            let last = null;
-            data.forEach(item => {
-                if (item.thing === thing && item.result === 'l' && item.date <= todayStr && (!last || item.date > last)) last = item.date;
-            });
-            return last;
+        // Dates something was "had", oldest first; the first one is only the starting point.
+        // Linked: the last loss on/before setup, then every loss logged after it. Unlinked: "Had it" taps.
+        function counterEvents(counter, todayStr) {
+            if (!counter.thing) return (counter.history || []).filter(date => date <= todayStr).sort();
+            const losses = data
+                .filter(item => item.thing === counter.thing && item.result === 'l' && item.date <= todayStr)
+                .map(item => item.date)
+                .sort();
+            const start = counter.start || todayStr;
+            const before = losses.filter(date => date <= start);
+            return [...before.slice(-1), ...losses.filter(date => date > start)];
         }
 
-        // Completed loops = how often it was "had" since the counter started.
-        // Linked: losses logged after the counter was set up. Unlinked: "Had it" taps.
-        function counterLoops(counter, todayStr) {
-            if (!counter.thing) return counter.loops || 0;
-            if (!counter.start) return 0;
-            return data.filter(item => item.thing === counter.thing && item.result === 'l'
-                && item.date > counter.start && item.date <= todayStr).length;
+        // Replays the history: waiting the full time completes a loop (next wait grows by step days),
+        // giving in early counts as "too early" and drops back to the starting wait.
+        function counterStats(counter, todayStr) {
+            const step = counter.step || 0;
+            const events = counterEvents(counter, todayStr);
+            let level = 0, best = 0, completed = 0, early = 0;
+            for (let i = 1; i < events.length; i++) {
+                if (daysBetween(events[i - 1], events[i]) >= counter.days + step * level) {
+                    level++;
+                    completed++;
+                    best = Math.max(best, level);
+                } else {
+                    early++;
+                    level = 0;
+                }
+            }
+            return {
+                level,                                  // loops completed in a row
+                best,                                   // all-time most loops in a row
+                completed,
+                early,
+                interval: counter.days + step * level,  // current wait
+                bestInterval: counter.days + step * best,
+                last: events[events.length - 1] || null
+            };
         }
 
-        // Current wait: base days + extra days per completed loop (e.g. 21, 24, 27 … with +3)
         function counterInterval(counter, todayStr) {
-            return counter.days + (counter.step || 0) * counterLoops(counter, todayStr);
+            return counterStats(counter, todayStr).interval;
         }
 
         function counterState(counter, todayStr) {
-            const interval = counterInterval(counter, todayStr);
-            const last = counter.thing ? lastLossDate(counter.thing, todayStr) : counter.last;
-            if (!last) return { last: null, remaining: 0, progress: 1, interval };
-            const elapsed = daysBetween(last, todayStr);
+            const stats = counterStats(counter, todayStr);
+            if (!stats.last) return { ...stats, remaining: 0, progress: 1 };
+            const elapsed = daysBetween(stats.last, todayStr);
             return {
-                last,
-                interval,
-                remaining: interval - elapsed,
-                nextDate: addDays(last, interval),
-                progress: Math.min(1, elapsed / interval)
+                ...stats,
+                remaining: stats.interval - elapsed,
+                nextDate: addDays(stats.last, stats.interval),
+                progress: Math.min(1, elapsed / stats.interval)
             };
         }
 
@@ -2194,12 +2244,18 @@
                 }
                 if (counter.step) sub += ` · then ${state.interval + counter.step} days`;
 
+                const stats = [];
+                if (state.level > 0) stats.push(`<span class="next-streak" title="Loops completed in a row"><i class="fas fa-fire"></i> ${state.level} in a row</span>`);
+                if (state.best > 0) stats.push(`<span class="next-best" title="All-time best"><i class="fas fa-trophy"></i> best ${state.best}${counter.step ? ` · ${state.bestInterval} d` : ''}</span>`);
+                if (state.early > 0) stats.push(`<span class="next-early" title="Times you gave in before the countdown ended">${state.early}× too early</span>`);
+
                 const row = document.createElement('div');
                 row.className = 'next-row' + (ready ? ' ready' : '');
                 row.innerHTML = `
                     <div class="next-info">
                         <div class="next-name">${escapeHtml(counter.name)}${counter.thing ? ` <i class="fas fa-link" title="Linked to ${escapeHtml(counter.thing)}"></i>` : ''}</div>
                         <div class="next-sub">${sub}</div>
+                        ${stats.length ? `<div class="next-stats">${stats.join('')}</div>` : ''}
                     </div>
                     <div class="next-count">${countHtml}</div>
                     <button class="next-use" title="${counter.thing ? `Logs a loss for ${escapeHtml(counter.thing)} today` : 'Restart the countdown from today'}">Had it</button>
@@ -2217,30 +2273,65 @@
             });
         }
 
-        function useCounter(id) {
+        async function useCounter(id) {
             const counter = meta.counters.find(c => c.id === id);
             const todayStr = toLocalDateStr(new Date());
-            if (counter.thing) {
-                // Linked: the loss entry is the source of truth (setResult offers Undo when clearing)
-                if (findEntry(todayStr, counter.thing)?.result === 'l') {
-                    showToast(`Already logged for ${counter.thing} today`);
-                    return;
-                }
-                setResult(todayStr, counter.thing, 'l');
-                showToast(`${counter.name}: next time in ${counterInterval(counter, todayStr)} days (logged a loss for ${counter.thing})`);
+            if (counter.thing && findEntry(todayStr, counter.thing)?.result === 'l') {
+                showToast(`Already logged for ${counter.thing} today`);
                 return;
             }
-            const previous = { last: counter.last, loops: counter.loops || 0 };
-            counter.last = todayStr;
-            counter.loops = previous.loops + 1;
-            saveMeta();
-            updateNextPanel();
-            showToast(`${counter.name}: next time in ${counterInterval(counter, todayStr)} days`, 'Undo', () => {
-                counter.last = previous.last;
-                counter.loops = previous.loops;
+
+            // Giving in early: one moment of friction, with what's at stake
+            const before = counterState(counter, todayStr);
+            if (before.last && before.remaining > 0) {
+                const s = before.remaining === 1 ? '' : 's';
+                const stake = before.level > 0
+                    ? `You're on <strong>${before.level} in a row</strong>. Having it now drops you back to ${counter.days} days.`
+                    : `Having it now counts as too early.`;
+                const confirmBtn = document.getElementById('modalConfirmBtn');
+                const cancelBtn = document.getElementById('modalCancelBtn');
+                const answer = showCustomModal('Too early?', `Only <strong>${before.remaining} day${s}</strong> to go. ${stake}`);
+                // Make holding on the obvious choice
+                confirmBtn.textContent = 'Had it anyway';
+                confirmBtn.className = 'btn secondary';
+                cancelBtn.textContent = 'Hold on';
+                cancelBtn.className = 'btn info';
+                const confirmed = await answer;
+                confirmBtn.textContent = 'OK';
+                confirmBtn.className = 'btn';
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.className = 'btn secondary';
+                if (!confirmed) {
+                    showToast(`Strong. ${before.remaining} day${s} left 💪`);
+                    return;
+                }
+            }
+
+            let undo;
+            if (counter.thing) {
+                // Linked: the loss entry is the source of truth
+                const previous = findEntry(todayStr, counter.thing);
+                const previousResult = previous?.result;
+                setResult(todayStr, counter.thing, 'l');
+                undo = () => setResult(todayStr, counter.thing, previousResult || null);
+            } else {
+                counter.history = [...(counter.history || []), todayStr];
                 saveMeta();
                 updateNextPanel();
-            });
+                undo = () => {
+                    counter.history.pop();
+                    saveMeta();
+                    updateNextPanel();
+                };
+            }
+
+            const after = counterState(counter, todayStr);
+            let message;
+            if (!before.last) message = `${counter.name}: countdown started, ${after.interval} days`;
+            else if (after.early > before.early) message = `Too early, back to ${after.interval} days. Best: ${after.best} in a row. Next time you've got this!`;
+            else if (after.best > before.best) message = `New record: ${after.level} in a row! 🏆 Next wait ${after.interval} days`;
+            else message = `Loop done: ${after.level} in a row. Next wait ${after.interval} days`;
+            showToast(message, 'Undo', undo);
         }
 
         // Editor for a new (id = null) or existing counter
@@ -2257,10 +2348,11 @@
             // Show how far the wait has grown so far
             const current = document.getElementById('counterCurrent');
             const todayStr = toLocalDateStr(new Date());
-            const loops = counter ? counterLoops(counter, todayStr) : 0;
-            current.hidden = !(counter?.step && loops > 0);
+            const stats = counter ? counterStats(counter, todayStr) : null;
+            current.hidden = !(stats && (stats.completed || stats.early));
             if (!current.hidden) {
-                current.textContent = `Current wait: ${counterInterval(counter, todayStr)} days (${counter.days} + ${counter.step} × ${loops} loop${loops === 1 ? '' : 's'})`;
+                current.textContent = `Current wait: ${stats.interval} days · ${stats.level} in a row · best ${stats.best} · `
+                    + `${stats.completed} loop${stats.completed === 1 ? '' : 's'} done · ${stats.early}× too early`;
             }
 
             const select = document.getElementById('counterThing');
@@ -2268,7 +2360,8 @@
                 meta.things.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
             select.value = counter?.thing || '';
 
-            document.getElementById('counterLast').value = counter?.last || toLocalDateStr(new Date());
+            // Unlinked: "Last time" edits the most recent "Had it"
+            document.getElementById('counterLast').value = counter?.history?.slice(-1)[0] || toLocalDateStr(new Date());
             document.getElementById('counterLastField').hidden = !!select.value;
             document.getElementById('counterDeleteBtn').hidden = !counter;
             document.getElementById('counterModal').classList.add('visible');
@@ -2295,14 +2388,18 @@
 
             const todayStr = toLocalDateStr(new Date());
             const existing = editingCounterId ? meta.counters.find(c => c.id === editingCounterId) : null;
-            const fields = { name: name || thing, days, step, thing, last: thing ? null : last };
+            const fields = { name: name || thing, days, step, thing };
+            if (!thing) {
+                const history = existing && !existing.thing ? [...(existing.history || [])] : [];
+                if (last) history.length ? history.splice(-1, 1, last) : history.push(last);
+                fields.history = history.sort();
+            }
             // Loops count from when the counter was set up (or re-linked); earlier losses don't stretch it
             if (thing) fields.start = existing?.thing === thing && existing.start ? existing.start : todayStr;
-            if (!thing && existing?.thing) fields.loops = 0;
             if (existing) {
                 Object.assign(existing, fields);
             } else {
-                meta.counters.push({ id: Date.now().toString(36), loops: 0, ...fields });
+                meta.counters.push({ id: Date.now().toString(36), ...fields });
             }
             saveMeta();
             closeCounterEditor();

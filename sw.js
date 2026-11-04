@@ -1,4 +1,4 @@
-const CACHE_NAME = 'things-tracker-v16-local'; // Bump on every release so phones pick up the new index.html
+const CACHE_NAME = 'things-tracker-v17-local'; // Bump on every release so phones pick up the new index.html
 const urlsToCache = [
     './',
     'index.html', // Explicitly cache index.html
