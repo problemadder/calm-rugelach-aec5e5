@@ -1193,6 +1193,10 @@
                 <span>Add … days per loop (0 = always the same)</span>
                 <input type="number" id="counterStep" class="modal-input" min="0" inputmode="numeric" placeholder="0" />
             </label>
+            <label class="field">
+                <span>Max wait … days (empty = no limit)</span>
+                <input type="number" id="counterMax" class="modal-input" min="1" inputmode="numeric" placeholder="e.g. 42" />
+            </label>
             <p class="field-hint" id="counterCurrent" hidden></p>
             <label class="field" id="counterLastField">
                 <span>Last time</span>
@@ -2173,12 +2177,17 @@
 
         // Replays the history: waiting the full time completes a loop (next wait grows by step days),
         // giving in early counts as "too early" and drops back to the starting wait.
+        // Wait after `level` loops in a row: grows by step days per loop, but never beyond the max (if set)
+        function counterWait(counter, level) {
+            const wait = counter.days + (counter.step || 0) * level;
+            return counter.max ? Math.min(wait, counter.max) : wait;
+        }
+
         function counterStats(counter, todayStr) {
-            const step = counter.step || 0;
             const events = counterEvents(counter, todayStr);
             let level = 0, best = 0, completed = 0, early = 0;
             for (let i = 1; i < events.length; i++) {
-                if (daysBetween(events[i - 1], events[i]) >= counter.days + step * level) {
+                if (daysBetween(events[i - 1], events[i]) >= counterWait(counter, level)) {
                     level++;
                     completed++;
                     best = Math.max(best, level);
@@ -2192,8 +2201,10 @@
                 best,                                   // all-time most loops in a row
                 completed,
                 early,
-                interval: counter.days + step * level,  // current wait
-                bestInterval: counter.days + step * best,
+                interval: counterWait(counter, level),  // current wait
+                nextInterval: counterWait(counter, level + 1),
+                atMax: !!counter.max && counter.step > 0 && counterWait(counter, level) >= counter.max,
+                bestInterval: counterWait(counter, best),
                 last: events[events.length - 1] || null
             };
         }
@@ -2242,7 +2253,8 @@
                     countHtml = `<span class="next-days">${state.remaining}</span><span class="next-unit">day${state.remaining === 1 ? '' : 's'}</span>`;
                     sub = `next: ${formatShortDate(state.nextDate)}`;
                 }
-                if (counter.step) sub += ` · then ${state.interval + counter.step} days`;
+                if (state.atMax) sub += ` · max wait reached`;
+                else if (counter.step) sub += ` · then ${state.nextInterval} days`;
 
                 const stats = [];
                 if (state.level > 0) stats.push(`<span class="next-streak" title="Loops completed in a row"><i class="fas fa-fire"></i> ${state.level} in a row</span>`);
@@ -2344,6 +2356,7 @@
             document.getElementById('counterName').value = counter?.name || '';
             document.getElementById('counterDays').value = counter?.days || '';
             document.getElementById('counterStep').value = counter?.step || 0;
+            document.getElementById('counterMax').value = counter?.max || '';
 
             // Show how far the wait has grown so far
             const current = document.getElementById('counterCurrent');
@@ -2385,10 +2398,16 @@
                 showToast('Days per loop must be 0 or more');
                 return;
             }
+            const maxInput = document.getElementById('counterMax').value.trim();
+            const max = maxInput ? parseInt(maxInput, 10) : null;
+            if (maxInput && !(max >= days)) {
+                showToast(`Max wait must be at least ${days} days`);
+                return;
+            }
 
             const todayStr = toLocalDateStr(new Date());
             const existing = editingCounterId ? meta.counters.find(c => c.id === editingCounterId) : null;
-            const fields = { name: name || thing, days, step, thing };
+            const fields = { name: name || thing, days, step, max, thing };
             if (!thing) {
                 const history = existing && !existing.thing ? [...(existing.history || [])] : [];
                 if (last) history.length ? history.splice(-1, 1, last) : history.push(last);
@@ -2452,7 +2471,7 @@
                 row.className = 'settings-thing';
                 row.innerHTML = `
                     <span class="settings-thing-name">${escapeHtml(counter.name)}</span>
-                    <span class="settings-thing-count">${formatInterval(counterInterval(counter, toLocalDateStr(new Date())))}${counter.step ? ` +${counter.step}` : ''}${counter.thing ? ' · linked' : ''}</span>
+                    <span class="settings-thing-count">${formatInterval(counterInterval(counter, toLocalDateStr(new Date())))}${counter.step ? ` +${counter.step}` : ''}${counter.step && counter.max ? ` up to ${counter.max}` : ''}${counter.thing ? ' · linked' : ''}</span>
                     <button class="icon-btn" title="Edit"><i class="fas fa-pen"></i></button>
                 `;
                 row.querySelector('button').onclick = () => openCounterEditor(counter.id);
